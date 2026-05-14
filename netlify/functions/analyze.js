@@ -95,13 +95,13 @@ export const handler = async (event) => {
         role: 'user',
         content: [
           { type: 'text', text: userMessage },
-          { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}` } }
+          { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}`, detail: 'high' } }
         ]
       }
     ],
     temperature: 0.2,
-    max_tokens: 2000,
-    response_format: { type: 'json_object' }
+    max_tokens: 2000
+    // response_format not supported with vision models in xAI API
   }
 
   try {
@@ -117,10 +117,12 @@ export const handler = async (event) => {
     if (!response.ok) {
       const errText = await response.text()
       console.error('GROK API error:', response.status, errText)
+      let detail = errText
+      try { detail = JSON.parse(errText)?.error?.message || errText } catch {}
       return {
         statusCode: response.status,
         headers: corsHeaders(),
-        body: JSON.stringify({ error: `GROK API error: ${response.status}`, detail: errText })
+        body: JSON.stringify({ error: `Erro ${response.status} da API GROK: ${detail}` })
       }
     }
 
