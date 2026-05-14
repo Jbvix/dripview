@@ -42,7 +42,7 @@ export default function Capture() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-surface-900">
+    <div className="flex flex-col min-h-dvh bg-surface-900">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 pt-safe-top py-4 border-b border-surface-700">
         <button

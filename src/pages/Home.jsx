@@ -4,7 +4,7 @@ export default function Home() {
   const navigate = useNavigate()
 
   return (
-    <div className="flex flex-col min-h-screen bg-surface-900">
+    <div className="flex flex-col min-h-dvh bg-surface-900">
       {/* Hero */}
       <div className="relative overflow-hidden bg-gradient-to-b from-surface-800 to-surface-900 px-6 pt-16 pb-10">
         <div className="absolute inset-0 opacity-5 pointer-events-none">

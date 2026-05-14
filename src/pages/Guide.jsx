@@ -5,7 +5,7 @@ export default function Guide() {
   const navigate = useNavigate()
 
   return (
-    <div className="flex flex-col min-h-screen bg-surface-900">
+    <div className="flex flex-col min-h-dvh bg-surface-900">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 pt-safe-top py-4 border-b border-surface-700 sticky top-0 bg-surface-900/95 backdrop-blur z-10">
         <button onClick={() => navigate(-1)} className="p-2 rounded-xl hover:bg-surface-700 transition-colors">←</button>

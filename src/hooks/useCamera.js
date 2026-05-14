@@ -26,11 +26,15 @@ export function useCamera() {
 
     let stream
     try {
+      // Use 'ideal' so browser falls back gracefully instead of throwing
       stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } }
+        video: {
+          facingMode: { ideal: facingMode },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
       })
     } catch (err) {
-      // Retry with no constraints if overconstrained or device error
       if (err.name === 'NotAllowedError') {
         setError('Permissão de câmera negada. Permita o acesso nas configurações do navegador.')
         return
@@ -39,10 +43,15 @@ export function useCamera() {
         setError('Nenhuma câmera encontrada neste dispositivo.')
         return
       }
+      // Any other error: retry with bare minimum constraints
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: true })
       } catch (e2) {
-        setError(`Erro ao acessar câmera: ${e2.message}`)
+        if (e2.name === 'NotAllowedError') {
+          setError('Permissão de câmera negada. Permita o acesso nas configurações do navegador.')
+        } else {
+          setError(`Erro ao acessar câmera: ${e2.message}`)
+        }
         return
       }
     }
