@@ -1,7 +1,7 @@
 import { OIL_CONDITIONS, getScoreColor } from '../utils/oilConditions.js'
 
 export default function AnalysisResult({ result }) {
-  const { analysis, previewDataUrl, analyzedAt } = result
+  const { analysis, previewDataUrl, referencePreviewDataUrl, isComparative, analyzedAt } = result
   const condition = OIL_CONDITIONS[analysis.condition] || OIL_CONDITIONS.atencao
   const scoreColor = getScoreColor(analysis.score ?? 50)
 
@@ -27,15 +27,38 @@ export default function AnalysisResult({ result }) {
 
       {/* Image preview */}
       {previewDataUrl && (
-        <div className="flex flex-col items-center gap-2">
-          <p className="text-xs text-gray-500 uppercase tracking-widest">Imagem Analisada</p>
-          <img
-            src={previewDataUrl}
-            alt="Mancha de óleo analisada"
-            className="w-48 h-48 rounded-full object-cover border-4 border-surface-700 shadow-xl"
-          />
-          <p className="text-xs text-gray-500">{new Date(analyzedAt).toLocaleString('pt-BR')}</p>
-        </div>
+        isComparative && referencePreviewDataUrl ? (
+          <div className="flex gap-4 justify-center">
+            <div className="flex flex-col items-center gap-1">
+              <p className="text-xs text-emerald-400 font-semibold uppercase tracking-widest">Referência</p>
+              <img
+                src={referencePreviewDataUrl}
+                alt="Óleo de referência"
+                className="w-36 h-36 rounded-full object-cover border-4 border-emerald-900 shadow-xl"
+              />
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <p className="text-xs text-oil-gold font-semibold uppercase tracking-widest">Analisado</p>
+              <img
+                src={previewDataUrl}
+                alt="Óleo analisado"
+                className="w-36 h-36 rounded-full object-cover border-4 border-surface-700 shadow-xl"
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-2">
+            <p className="text-xs text-gray-500 uppercase tracking-widest">Imagem Analisada</p>
+            <img
+              src={previewDataUrl}
+              alt="Mancha de óleo analisada"
+              className="w-48 h-48 rounded-full object-cover border-4 border-surface-700 shadow-xl"
+            />
+          </div>
+        )
+      )}
+      {analyzedAt && (
+        <p className="text-xs text-gray-500 text-center">{new Date(analyzedAt).toLocaleString('pt-BR')}</p>
       )}
 
       {/* Rings analysis */}
@@ -56,6 +79,48 @@ export default function AnalysisResult({ result }) {
               </div>
             ))}
           </div>
+        </section>
+      )}
+
+      {/* Comparison section */}
+      {analysis.comparison && analysis.comparison.summary && (
+        <section className="bg-surface-800 rounded-2xl p-5 border border-emerald-800/50">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-emerald-400 text-lg">⚖️</span>
+            <h3 className="text-sm font-semibold text-emerald-400 uppercase tracking-widest">Análise Comparativa</h3>
+            {analysis.comparison.degradationLevel && (
+              <span className={`ml-auto text-xs px-2 py-0.5 rounded-full font-mono ${
+                analysis.comparison.degradationLevel === 'severa'
+                  ? 'bg-red-900/50 text-red-300'
+                  : analysis.comparison.degradationLevel === 'moderada'
+                  ? 'bg-amber-900/50 text-amber-300'
+                  : 'bg-emerald-900/50 text-emerald-300'
+              }`}>
+                degradação {analysis.comparison.degradationLevel}
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-gray-200 leading-relaxed mb-4">{analysis.comparison.summary}</p>
+          {[
+            { label: 'Núcleo', value: analysis.comparison.nucleusChange },
+            { label: 'Difusão', value: analysis.comparison.diffusionChange },
+            { label: 'Halo', value: analysis.comparison.haloChange }
+          ].filter(d => d.value).map((d, i) => (
+            <div key={i} className="flex gap-2 mb-2 last:mb-0">
+              <span className="text-xs text-gray-500 w-14 flex-shrink-0 pt-0.5">{d.label}</span>
+              <p className="text-xs text-gray-300 leading-relaxed">{d.value}</p>
+            </div>
+          ))}
+          {analysis.comparison.mainDifferences?.length > 0 && (
+            <ul className="mt-3 flex flex-col gap-1">
+              {analysis.comparison.mainDifferences.map((d, i) => (
+                <li key={i} className="flex items-start gap-2 text-xs text-gray-400">
+                  <span className="text-emerald-500 flex-shrink-0 mt-0.5">›</span>
+                  {d}
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       )}
 

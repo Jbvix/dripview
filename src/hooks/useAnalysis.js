@@ -3,22 +3,30 @@ import { analyzeOilSpot } from '../services/grokApi.js'
 import { processImageDataUrl, processImageFile } from '../services/imageProcessor.js'
 import { saveAnalysis } from '../services/storage.js'
 
+async function processSource(source) {
+  if (!source) return null
+  return source.dataUrl
+    ? processImageDataUrl(source.dataUrl)
+    : processImageFile(source.file)
+}
+
 export function useAnalysis() {
-  const [status, setStatus] = useState('idle') // idle | processing | success | error
+  const [status, setStatus] = useState('idle')
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
   const [preview, setPreview] = useState(null)
 
-  const analyze = useCallback(async ({ dataUrl, file, userNotes = '' }) => {
+  const analyze = useCallback(async ({ dataUrl, file, userNotes = '', referenceSource = null }) => {
     setStatus('processing')
     setError(null)
     setResult(null)
 
     try {
       setStatus('processing:image')
-      const processed = dataUrl
-        ? await processImageDataUrl(dataUrl)
-        : await processImageFile(file)
+      const [processed, processedRef] = await Promise.all([
+        processSource({ dataUrl, file }),
+        processSource(referenceSource)
+      ])
 
       setPreview(processed.previewDataUrl)
 
@@ -27,13 +35,19 @@ export function useAnalysis() {
         imageBase64: processed.imageBase64,
         mimeType: processed.mimeType,
         userNotes,
-        colorData: processed.colorData
+        colorData: processed.colorData,
+        referenceImageBase64: processedRef?.imageBase64 ?? null,
+        referenceMimeType: processedRef?.mimeType ?? 'image/jpeg',
+        referenceColorData: processedRef?.colorData ?? null
       })
 
       const record = {
         analysis: apiResult.analysis,
         previewDataUrl: processed.previewDataUrl,
+        referencePreviewDataUrl: processedRef?.previewDataUrl ?? null,
         colorData: processed.colorData,
+        referenceColorData: processedRef?.colorData ?? null,
+        isComparative: apiResult.isComparative ?? false,
         model: apiResult.model,
         usage: apiResult.usage,
         userNotes,

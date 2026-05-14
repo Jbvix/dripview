@@ -4,7 +4,15 @@ const ANALYZE_ENDPOINT = '/.netlify/functions/analyze'
 const MAX_RETRIES = 2
 const RETRY_DELAY_MS = 6000
 
-export async function analyzeOilSpot({ imageBase64, mimeType = 'image/jpeg', userNotes = '', colorData = null }) {
+export async function analyzeOilSpot({
+  imageBase64,
+  mimeType = 'image/jpeg',
+  userNotes = '',
+  colorData = null,
+  referenceImageBase64 = null,
+  referenceMimeType = 'image/jpeg',
+  referenceColorData = null
+}) {
   let lastError
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     if (attempt > 0) await sleep(RETRY_DELAY_MS)
@@ -13,7 +21,10 @@ export async function analyzeOilSpot({ imageBase64, mimeType = 'image/jpeg', use
       const response = await fetch(ANALYZE_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageBase64, mimeType, userNotes, colorData })
+        body: JSON.stringify({
+          imageBase64, mimeType, userNotes, colorData,
+          referenceImageBase64, referenceMimeType, referenceColorData
+        })
       })
 
       const text = await response.text()
@@ -21,7 +32,6 @@ export async function analyzeOilSpot({ imageBase64, mimeType = 'image/jpeg', use
       try {
         data = JSON.parse(text)
       } catch {
-        // Netlify returned HTML (timeout 504, deploy in progress, etc.)
         if (response.status === 504 || response.status === 502) {
           lastError = new Error('Serviço temporariamente indisponível. Tente novamente em instantes.')
           continue
@@ -30,8 +40,6 @@ export async function analyzeOilSpot({ imageBase64, mimeType = 'image/jpeg', use
       }
 
       if (!response.ok) {
-        const msg = data.error || `Erro ${response.status}`
-        // Retry on 429 (rate limit) or 503 (capacity)
         if ((response.status === 429 || response.status === 503) && attempt < MAX_RETRIES) {
           lastError = new Error('KRATOS sobrecarregado. Tentando novamente...')
           continue
@@ -39,7 +47,7 @@ export async function analyzeOilSpot({ imageBase64, mimeType = 'image/jpeg', use
         if (response.status === 429) {
           throw new Error('KRATOS está sobrecarregado no momento. Aguarde alguns minutos e tente novamente.')
         }
-        throw new Error(msg)
+        throw new Error(data.error || `Erro ${response.status}`)
       }
 
       return data
