@@ -7,6 +7,8 @@ export function useCamera() {
   const [error, setError] = useState(null)
   const [facingMode, setFacingMode] = useState('environment')
   const [hasMultipleCameras, setHasMultipleCameras] = useState(false)
+  const [torchOn, setTorchOn] = useState(false)
+  const [hasTorch, setHasTorch] = useState(false)
 
   useEffect(() => {
     navigator.mediaDevices?.enumerateDevices().then(devices => {
@@ -18,6 +20,8 @@ export function useCamera() {
   const startCamera = useCallback(async () => {
     setError(null)
     setIsActive(false)
+    setTorchOn(false)
+    setHasTorch(false)
 
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop())
@@ -26,7 +30,6 @@ export function useCamera() {
 
     let stream
     try {
-      // Use 'ideal' so browser falls back gracefully instead of throwing
       stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: facingMode },
@@ -43,7 +46,6 @@ export function useCamera() {
         setError('Nenhuma câmera encontrada neste dispositivo.')
         return
       }
-      // Any other error: retry with bare minimum constraints
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: true })
       } catch (e2) {
@@ -57,18 +59,23 @@ export function useCamera() {
     }
 
     streamRef.current = stream
+
+    // Detect torch support from track capabilities
+    const track = stream.getVideoTracks()[0]
+    if (track) {
+      const caps = track.getCapabilities?.()
+      if (caps?.torch) setHasTorch(true)
+    }
+
     const video = videoRef.current
     if (!video) return
 
     video.srcObject = stream
-
-    // Set active only when video actually has frames to show
     video.addEventListener('canplay', () => setIsActive(true), { once: true })
 
     try {
       await video.play()
     } catch (e) {
-      // AbortError is expected on fast unmount; ignore it
       if (e.name !== 'AbortError') {
         setError(`Erro ao reproduzir câmera: ${e.message}`)
       }
@@ -84,7 +91,21 @@ export function useCamera() {
       videoRef.current.srcObject = null
     }
     setIsActive(false)
+    setTorchOn(false)
+    setHasTorch(false)
   }, [])
+
+  const toggleTorch = useCallback(async () => {
+    const track = streamRef.current?.getVideoTracks()[0]
+    if (!track) return
+    const next = !torchOn
+    try {
+      await track.applyConstraints({ advanced: [{ torch: next }] })
+      setTorchOn(next)
+    } catch {
+      // torch not supported on this device/browser — silently ignore
+    }
+  }, [torchOn])
 
   const captureFrame = useCallback(() => {
     const video = videoRef.current
@@ -102,5 +123,9 @@ export function useCamera() {
 
   useEffect(() => () => stopCamera(), [stopCamera])
 
-  return { videoRef, isActive, error, hasMultipleCameras, startCamera, stopCamera, captureFrame, flipCamera, facingMode }
+  return {
+    videoRef, isActive, error,
+    hasMultipleCameras, startCamera, stopCamera, captureFrame, flipCamera, facingMode,
+    torchOn, hasTorch, toggleTorch
+  }
 }

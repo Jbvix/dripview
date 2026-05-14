@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useCamera } from '../hooks/useCamera.js'
 
 export default function Camera({ onCapture, onFileSelect }) {
-  const { videoRef, isActive, error, hasMultipleCameras, startCamera, stopCamera, captureFrame, flipCamera } = useCamera()
+  const { videoRef, isActive, error, hasMultipleCameras, startCamera, stopCamera, captureFrame, flipCamera, torchOn, hasTorch, toggleTorch } = useCamera()
   const fileInputRef = useRef(null)
 
   useEffect(() => {
@@ -65,6 +65,20 @@ export default function Camera({ onCapture, onFileSelect }) {
               <div className="w-48 h-48 rounded-full border-2 border-dashed border-oil-gold/60" />
               <div className="absolute w-2 h-2 rounded-full bg-oil-gold/80" />
             </div>
+            {/* Torch toggle — top-right corner */}
+            {hasTorch && (
+              <button
+                onClick={toggleTorch}
+                className={`absolute top-3 right-3 w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                  torchOn
+                    ? 'bg-yellow-400 text-surface-900 shadow-lg shadow-yellow-400/50'
+                    : 'bg-black/50 text-white/80'
+                }`}
+                aria-label={torchOn ? 'Desligar lanterna' : 'Ligar lanterna'}
+              >
+                <TorchIcon on={torchOn} />
+              </button>
+            )}
             <div className="absolute bottom-3 left-3 right-3 text-center">
               <span className="text-xs text-white/70 bg-black/50 px-2 py-1 rounded-full">
                 Centralize a mancha de óleo no círculo
@@ -113,5 +127,18 @@ export default function Camera({ onCapture, onFileSelect }) {
         onChange={handleFileChange}
       />
     </div>
+  )
+}
+
+function TorchIcon({ on }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 2h8l1 6H7L8 2z" />
+      <path d="M7 8l-2 14h14L17 8" />
+      <line x1="12" y1="12" x2="12" y2="18" />
+      {on && <line x1="12" y1="2" x2="12" y2="0" stroke="currentColor" strokeWidth="2" />}
+      {on && <line x1="18" y1="5" x2="20" y2="3" stroke="currentColor" strokeWidth="2" />}
+      {on && <line x1="6" y1="5" x2="4" y2="3" stroke="currentColor" strokeWidth="2" />}
+    </svg>
   )
 }
