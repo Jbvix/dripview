@@ -1,56 +1,32 @@
-// Netlify serverless function — proxies image to xAI GROK Vision API
+// Netlify serverless function — proxies image to xAI GROK Vision API (Responses API)
 // Keeps GROK_API_KEY server-side only
 
-const GROK_API_URL = 'https://api.x.ai/v1/chat/completions'
-const MODEL = 'grok-2-vision-1212'
+const GROK_API_URL = 'https://api.x.ai/v1/responses'
+const MODEL = 'grok-4.3'
 
 const SYSTEM_PROMPT = `Você é um especialista em tribologia e análise de óleos lubrificantes.
 Analise a imagem de um teste de mancha por gota (blotter spot test) em papel cromatográfico e forneça uma análise educativa detalhada em português brasileiro.
 
-Estruture sua resposta EXATAMENTE neste formato JSON:
+Estruture sua resposta EXATAMENTE neste formato JSON (sem texto fora do JSON):
 {
-  "condition": "bom" | "atencao" | "critico",
-  "conditionLabel": "texto curto da condição (ex: Óleo em bom estado)",
-  "score": 0-100,
+  "condition": "bom" ou "atencao" ou "critico",
+  "conditionLabel": "texto curto da condição",
+  "score": número de 0 a 100,
   "rings": [
-    {
-      "zone": "núcleo central",
-      "color": "descrição da cor observada",
-      "interpretation": "o que essa zona indica sobre o óleo"
-    },
-    {
-      "zone": "anel de difusão",
-      "color": "descrição da cor observada",
-      "interpretation": "o que esse anel indica"
-    },
-    {
-      "zone": "anel externo / halo",
-      "color": "descrição da cor observada",
-      "interpretation": "o que o halo indica"
-    }
+    { "zone": "núcleo central", "color": "cor observada", "interpretation": "o que indica" },
+    { "zone": "anel de difusão", "color": "cor observada", "interpretation": "o que indica" },
+    { "zone": "anel externo / halo", "color": "cor observada", "interpretation": "o que indica" }
   ],
   "contaminants": [
-    {
-      "name": "nome do contaminante ou característica",
-      "detected": true | false,
-      "severity": "baixa" | "media" | "alta",
-      "explanation": "explicação educativa do que isso significa"
-    }
+    { "name": "nome", "detected": true ou false, "severity": "baixa" ou "media" ou "alta", "explanation": "explicação educativa" }
   ],
-  "oilType": "provável tipo de óleo analisado (se possível inferir)",
-  "educationalSummary": "parágrafo educativo de 3-4 frases explicando o resultado geral, como interpretar o teste e o que fazer",
-  "recommendation": "ação recomendada clara e objetiva",
-  "referenceInfo": "breve informação sobre o método blotter spot test para contextualização educativa"
+  "oilType": "tipo de óleo inferido",
+  "educationalSummary": "parágrafo educativo de 3-4 frases",
+  "recommendation": "ação recomendada",
+  "referenceInfo": "informação sobre o método blotter spot test"
 }
 
-Analise especificamente:
-- Cor e textura dos anéis cromatográficos
-- Presença de partículas metálicas (manchas escuras/cinzas)
-- Contaminação por água (halos brancos/opacos)
-- Oxidação (cor escura/marrom intensa)
-- Fuligem/carbono (manchas pretas densas)
-- Aditivos depletados (ausência de anel de difusão claro)
-- Estado geral da viscosidade base`
+Analise: cor e textura dos anéis, partículas metálicas, contaminação por água, oxidação, fuligem, aditivos depletados.`
 
 export const handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
@@ -83,25 +59,26 @@ export const handler = async (event) => {
     return { statusCode: 400, headers: corsHeaders(), body: JSON.stringify({ error: 'imageBase64 é obrigatório' }) }
   }
 
-  const userMessage = userNotes
+  const userText = userNotes
     ? `Analise este teste de gota de óleo. Notas do usuário: ${userNotes}`
     : 'Analise este teste de gota de óleo lubrificante no papel cromatográfico.'
 
   const payload = {
     model: MODEL,
-    messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
+    instructions: SYSTEM_PROMPT,
+    input: [
+      { type: 'text', text: userText },
       {
-        role: 'user',
-        content: [
-          { type: 'text', text: userMessage },
-          { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}`, detail: 'high' } }
-        ]
+        type: 'image',
+        source: {
+          type: 'base64',
+          media_type: mimeType,
+          data: imageBase64
+        }
       }
     ],
     temperature: 0.2,
-    max_tokens: 2000
-    // response_format not supported with vision models in xAI API
+    max_output_tokens: 2000
   }
 
   try {
@@ -114,11 +91,12 @@ export const handler = async (event) => {
       body: JSON.stringify(payload)
     })
 
+    const rawText = await response.text()
+
     if (!response.ok) {
-      const errText = await response.text()
-      console.error('GROK API error:', response.status, errText)
-      let detail = errText
-      try { detail = JSON.parse(errText)?.error?.message || errText } catch {}
+      console.error('GROK API error:', response.status, rawText)
+      let detail = rawText
+      try { detail = JSON.parse(rawText)?.error?.message || rawText } catch {}
       return {
         statusCode: response.status,
         headers: corsHeaders(),
@@ -126,18 +104,44 @@ export const handler = async (event) => {
       }
     }
 
-    const data = await response.json()
-    const content = data.choices?.[0]?.message?.content
+    const data = JSON.parse(rawText)
 
-    if (!content) {
-      return { statusCode: 502, headers: corsHeaders(), body: JSON.stringify({ error: 'Resposta vazia da API GROK' }) }
+    // Extract text from xAI Responses API output structure
+    let content = null
+
+    if (data.output) {
+      // New Responses API: output is array of message objects
+      for (const item of data.output) {
+        if (item.type === 'message' && item.content) {
+          for (const c of item.content) {
+            if (c.type === 'output_text' && c.text) { content = c.text; break }
+            if (c.type === 'text' && c.text) { content = c.text; break }
+          }
+        }
+        if (content) break
+        // Sometimes output_text is directly in the array
+        if (item.type === 'output_text' && item.text) { content = item.text; break }
+      }
     }
 
+    // Fallback: old chat completions structure
+    if (!content) {
+      content = data.choices?.[0]?.message?.content
+    }
+
+    if (!content) {
+      console.error('Unexpected GROK response structure:', JSON.stringify(data).slice(0, 500))
+      return { statusCode: 502, headers: corsHeaders(), body: JSON.stringify({ error: 'Resposta inesperada da API GROK', raw: JSON.stringify(data).slice(0, 300) }) }
+    }
+
+    // Extract JSON from response (model may wrap it in markdown code blocks)
     let analysis
     try {
-      analysis = JSON.parse(content)
+      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/) || content.match(/(\{[\s\S]*\})/)
+      const jsonStr = jsonMatch ? jsonMatch[1] || jsonMatch[0] : content
+      analysis = JSON.parse(jsonStr.trim())
     } catch {
-      analysis = { raw: content }
+      analysis = { raw: content, condition: 'atencao', conditionLabel: 'Análise recebida', score: 50, educationalSummary: content }
     }
 
     return {
@@ -145,8 +149,7 @@ export const handler = async (event) => {
       headers: { ...corsHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({
         analysis,
-        model: data.model,
-        usage: data.usage,
+        model: data.model || MODEL,
         timestamp: new Date().toISOString()
       })
     }
