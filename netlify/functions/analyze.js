@@ -53,15 +53,18 @@ export const handler = async (event) => {
     return { statusCode: 400, headers: corsHeaders(), body: JSON.stringify({ error: 'Body inválido' }) }
   }
 
-  const { imageBase64, mimeType = 'image/jpeg', userNotes = '' } = body
+  const { imageBase64, mimeType = 'image/jpeg', userNotes = '', colorData = null } = body
 
   if (!imageBase64) {
     return { statusCode: 400, headers: corsHeaders(), body: JSON.stringify({ error: 'imageBase64 é obrigatório' }) }
   }
 
-  const userText = userNotes
-    ? `Analise este teste de gota de óleo. Notas do usuário: ${userNotes}`
-    : 'Analise este teste de gota de óleo lubrificante no papel cromatográfico.'
+  const colorContext = colorData ? buildColorContext(colorData) : ''
+  const userText = [
+    'Analise este teste de gota de óleo lubrificante no papel cromatográfico.',
+    colorContext,
+    userNotes ? `Notas do usuário: ${userNotes}` : ''
+  ].filter(Boolean).join('\n\n')
 
   const payload = {
     model: MODEL,
@@ -173,4 +176,27 @@ function corsHeaders() {
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS'
   }
+}
+
+// Format client-side color measurements as structured context for the model
+function buildColorContext(colorData) {
+  const zoneNames = { nucleo: 'Núcleo central', difusao: 'Anel de difusão', halo: 'Halo externo' }
+  const lines = ['Medições colorimétricas locais (200 amostras por zona, antes da análise visual):']
+
+  for (const [key, label] of Object.entries(zoneNames)) {
+    const z = colorData[key]
+    if (!z) { lines.push(`- ${label}: sem dados`); continue }
+    const { hex, hsl, darkness } = z
+    const escuridao = (darkness * 100).toFixed(1)
+    lines.push(`- ${label}: hex=${hex}, HSL(${hsl.h}°, ${hsl.s}%, ${hsl.l}%), escuridão=${escuridao}%`)
+  }
+
+  lines.push(
+    'Use esses valores para calibrar sua interpretação visual:',
+    '  escuridão >70% no núcleo sugere fuligem/desgaste severo',
+    '  escuridão <20% no halo com matiz amarelo (H 40-55°) indica óleo fresco',
+    '  escuridão >60% no halo sugere contaminação por água ou degradação avançada'
+  )
+
+  return lines.join('\n')
 }
