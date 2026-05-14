@@ -22,18 +22,21 @@ export default function Camera({ onCapture, onFileSelect }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Viewfinder */}
+      {/* Viewfinder — video always mounted so ref is available on first render */}
       <div className="relative rounded-2xl overflow-hidden bg-surface-800 aspect-square max-w-sm mx-auto w-full">
-        {isActive ? (
+
+        {/* Video element always in DOM; hidden until stream is active */}
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className={`w-full h-full object-cover ${isActive ? 'block' : 'hidden'}`}
+        />
+
+        {/* Overlay guide — only when active */}
+        {isActive && (
           <>
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-cover"
-            />
-            {/* Overlay guide */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="w-48 h-48 rounded-full border-2 border-dashed border-oil-gold/60" />
               <div className="absolute w-2 h-2 rounded-full bg-oil-gold/80" />
@@ -44,13 +47,19 @@ export default function Camera({ onCapture, onFileSelect }) {
               </span>
             </div>
           </>
-        ) : error ? (
-          <div className="flex flex-col items-center justify-center h-64 gap-3 p-6 text-center">
+        )}
+
+        {/* Error state */}
+        {!isActive && error && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
             <span className="text-3xl">📷</span>
             <p className="text-sm text-red-400">{error}</p>
           </div>
-        ) : (
-          <div className="flex items-center justify-center h-64">
+        )}
+
+        {/* Loading state */}
+        {!isActive && !error && (
+          <div className="absolute inset-0 flex items-center justify-center">
             <div className="w-8 h-8 border-2 border-t-oil-gold border-surface-600 rounded-full animate-spin" />
           </div>
         )}
@@ -58,7 +67,6 @@ export default function Camera({ onCapture, onFileSelect }) {
 
       {/* Action buttons */}
       <div className="flex items-center justify-center gap-4 px-4">
-        {/* Upload from gallery */}
         <button
           onClick={() => fileInputRef.current?.click()}
           className="flex flex-col items-center gap-1 p-3 rounded-xl bg-surface-700 hover:bg-surface-600 transition-colors"
@@ -68,7 +76,6 @@ export default function Camera({ onCapture, onFileSelect }) {
           <span className="text-xs text-gray-400">Galeria</span>
         </button>
 
-        {/* Capture button */}
         <button
           onClick={handleCapture}
           disabled={!isActive}
@@ -78,7 +85,6 @@ export default function Camera({ onCapture, onFileSelect }) {
           <div className="w-14 h-14 rounded-full border-4 border-oil-dark/50" />
         </button>
 
-        {/* Flip camera */}
         <button
           onClick={flipCamera}
           disabled={!hasMultipleCameras}
