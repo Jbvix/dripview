@@ -5,7 +5,9 @@ const GROK_API_URL = 'https://api.x.ai/v1/responses'
 const MODEL = 'grok-4.3'
 
 const SYSTEM_PROMPT = `Você é um especialista em tribologia e análise de óleos lubrificantes.
-Analise a imagem de um teste de mancha por gota (blotter spot test) em papel cromatográfico e forneça uma análise educativa detalhada em português brasileiro.
+Analise a(s) imagem(ns) de um teste de mancha por gota (blotter spot test) em papel cromatográfico e forneça uma análise educativa detalhada em português brasileiro.
+
+Quando houver DUAS imagens, a primeira é a REFERÊNCIA (óleo limpo/novo) e a segunda é o ÓLEO ANALISADO (usado). Compare-as diretamente, avaliando o delta de cor, difusão, contaminantes e degradação.
 
 Estruture sua resposta EXATAMENTE neste formato JSON (sem texto fora do JSON):
 {
@@ -23,8 +25,19 @@ Estruture sua resposta EXATAMENTE neste formato JSON (sem texto fora do JSON):
   "oilType": "tipo de óleo inferido",
   "educationalSummary": "parágrafo educativo de 3-4 frases",
   "recommendation": "ação recomendada",
-  "referenceInfo": "informação sobre o método blotter spot test"
+  "referenceInfo": "informação sobre o método blotter spot test",
+  "comparison": null
 }
+
+Quando houver imagem de referência, substitua "comparison": null por:
+  "comparison": {
+    "degradationLevel": "leve" ou "moderada" ou "severa",
+    "nucleusChange": "descrição da mudança no núcleo vs referência",
+    "diffusionChange": "descrição da mudança no anel de difusão vs referência",
+    "haloChange": "descrição da mudança no halo externo vs referência",
+    "mainDifferences": ["diferença 1", "diferença 2", "diferença 3"],
+    "summary": "resumo comparativo educativo de 2-3 frases explicando o que mudou"
+  }
 
 Analise: cor e textura dos anéis, partículas metálicas, contaminação por água, oxidação, fuligem, aditivos depletados.`
 
@@ -53,37 +66,41 @@ export const handler = async (event) => {
     return { statusCode: 400, headers: corsHeaders(), body: JSON.stringify({ error: 'Body inválido' }) }
   }
 
-  const { imageBase64, mimeType = 'image/jpeg', userNotes = '', colorData = null } = body
+  const {
+    imageBase64,
+    mimeType = 'image/jpeg',
+    userNotes = '',
+    colorData = null,
+    referenceImageBase64 = null,
+    referenceMimeType = 'image/jpeg',
+    referenceColorData = null
+  } = body
 
   if (!imageBase64) {
     return { statusCode: 400, headers: corsHeaders(), body: JSON.stringify({ error: 'imageBase64 é obrigatório' }) }
   }
 
-  const colorContext = colorData ? buildColorContext(colorData) : ''
+  const isComparative = !!referenceImageBase64
+
+  const colorContext = buildColorContext(colorData, referenceColorData, isComparative)
   const userText = [
-    'Analise este teste de gota de óleo lubrificante no papel cromatográfico.',
+    isComparative
+      ? 'Realize análise COMPARATIVA entre as duas gotas. A primeira imagem é a REFERÊNCIA (óleo limpo). A segunda imagem é o ÓLEO ANALISADO (usado). Avalie o delta de degradação entre elas.'
+      : 'Analise este teste de gota de óleo lubrificante no papel cromatográfico.',
     colorContext,
     userNotes ? `Notas do usuário: ${userNotes}` : ''
   ].filter(Boolean).join('\n\n')
 
+  const content = buildContent({
+    imageBase64, mimeType,
+    referenceImageBase64, referenceMimeType,
+    userText, isComparative
+  })
+
   const payload = {
     model: MODEL,
     instructions: SYSTEM_PROMPT,
-    input: [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'input_image',
-            image_url: `data:${mimeType};base64,${imageBase64}`
-          },
-          {
-            type: 'input_text',
-            text: userText
-          }
-        ]
-      }
-    ],
+    input: [{ role: 'user', content }],
     temperature: 0.2,
     max_output_tokens: 2000
   }
@@ -113,42 +130,36 @@ export const handler = async (event) => {
 
     const data = JSON.parse(rawText)
 
-    // Extract text from xAI Responses API output structure
-    let content = null
-
+    let content2 = null
     if (data.output) {
-      // New Responses API: output is array of message objects
       for (const item of data.output) {
         if (item.type === 'message' && item.content) {
           for (const c of item.content) {
-            if (c.type === 'output_text' && c.text) { content = c.text; break }
-            if (c.type === 'text' && c.text) { content = c.text; break }
+            if (c.type === 'output_text' && c.text) { content2 = c.text; break }
+            if (c.type === 'text' && c.text) { content2 = c.text; break }
           }
         }
-        if (content) break
-        // Sometimes output_text is directly in the array
-        if (item.type === 'output_text' && item.text) { content = item.text; break }
+        if (content2) break
+        if (item.type === 'output_text' && item.text) { content2 = item.text; break }
       }
     }
 
-    // Fallback: old chat completions structure
-    if (!content) {
-      content = data.choices?.[0]?.message?.content
+    if (!content2) {
+      content2 = data.choices?.[0]?.message?.content
     }
 
-    if (!content) {
+    if (!content2) {
       console.error('Unexpected GROK response structure:', JSON.stringify(data).slice(0, 500))
       return { statusCode: 502, headers: corsHeaders(), body: JSON.stringify({ error: 'Resposta inesperada da API GROK', raw: JSON.stringify(data).slice(0, 300) }) }
     }
 
-    // Extract JSON from response (model may wrap it in markdown code blocks)
     let analysis
     try {
-      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/) || content.match(/(\{[\s\S]*\})/)
-      const jsonStr = jsonMatch ? jsonMatch[1] || jsonMatch[0] : content
+      const jsonMatch = content2.match(/```(?:json)?\s*([\s\S]*?)```/) || content2.match(/(\{[\s\S]*\})/)
+      const jsonStr = jsonMatch ? jsonMatch[1] || jsonMatch[0] : content2
       analysis = JSON.parse(jsonStr.trim())
     } catch {
-      analysis = { raw: content, condition: 'atencao', conditionLabel: 'Análise recebida', score: 50, educationalSummary: content }
+      analysis = { raw: content2, condition: 'atencao', conditionLabel: 'Análise recebida', score: 50, educationalSummary: content2 }
     }
 
     return {
@@ -157,7 +168,8 @@ export const handler = async (event) => {
       body: JSON.stringify({
         analysis,
         model: data.model || MODEL,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        isComparative
       })
     }
   } catch (err) {
@@ -170,33 +182,59 @@ export const handler = async (event) => {
   }
 }
 
+function buildContent({ imageBase64, mimeType, referenceImageBase64, referenceMimeType, userText, isComparative }) {
+  if (isComparative) {
+    return [
+      { type: 'input_text', text: '=== IMAGEM 1: REFERÊNCIA (óleo limpo/novo) ===' },
+      { type: 'input_image', image_url: `data:${referenceMimeType};base64,${referenceImageBase64}` },
+      { type: 'input_text', text: '=== IMAGEM 2: ÓLEO ANALISADO (usado) ===' },
+      { type: 'input_image', image_url: `data:${mimeType};base64,${imageBase64}` },
+      { type: 'input_text', text: userText }
+    ]
+  }
+  return [
+    { type: 'input_image', image_url: `data:${mimeType};base64,${imageBase64}` },
+    { type: 'input_text', text: userText }
+  ]
+}
+
+function buildColorContext(colorData, referenceColorData, isComparative) {
+  const lines = []
+
+  if (referenceColorData && isComparative) {
+    lines.push('Medições colorimétricas locais — REFERÊNCIA (200 amostras/zona):')
+    lines.push(...formatZones(referenceColorData))
+    lines.push('')
+  }
+
+  if (colorData) {
+    lines.push(`Medições colorimétricas locais — ${isComparative ? 'ÓLEO ANALISADO' : 'óleo analisado'} (200 amostras/zona):`)
+    lines.push(...formatZones(colorData))
+    lines.push(
+      'Limiares de referência:',
+      '  escuridão >70% no núcleo → fuligem/desgaste severo',
+      '  escuridão <20% no halo com matiz amarelo (H 40-55°) → óleo fresco',
+      '  escuridão >60% no halo → contaminação por água ou degradação avançada'
+    )
+  }
+
+  return lines.join('\n')
+}
+
+function formatZones(colorData) {
+  const zoneNames = { nucleo: 'Núcleo central', difusao: 'Anel de difusão', halo: 'Halo externo' }
+  return Object.entries(zoneNames).map(([key, label]) => {
+    const z = colorData[key]
+    if (!z) return `- ${label}: sem dados`
+    const { hex, hsl, darkness } = z
+    return `- ${label}: hex=${hex}, HSL(${hsl.h}°, ${hsl.s}%, ${hsl.l}%), escuridão=${(darkness * 100).toFixed(1)}%`
+  })
+}
+
 function corsHeaders() {
   return {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS'
   }
-}
-
-// Format client-side color measurements as structured context for the model
-function buildColorContext(colorData) {
-  const zoneNames = { nucleo: 'Núcleo central', difusao: 'Anel de difusão', halo: 'Halo externo' }
-  const lines = ['Medições colorimétricas locais (200 amostras por zona, antes da análise visual):']
-
-  for (const [key, label] of Object.entries(zoneNames)) {
-    const z = colorData[key]
-    if (!z) { lines.push(`- ${label}: sem dados`); continue }
-    const { hex, hsl, darkness } = z
-    const escuridao = (darkness * 100).toFixed(1)
-    lines.push(`- ${label}: hex=${hex}, HSL(${hsl.h}°, ${hsl.s}%, ${hsl.l}%), escuridão=${escuridao}%`)
-  }
-
-  lines.push(
-    'Use esses valores para calibrar sua interpretação visual:',
-    '  escuridão >70% no núcleo sugere fuligem/desgaste severo',
-    '  escuridão <20% no halo com matiz amarelo (H 40-55°) indica óleo fresco',
-    '  escuridão >60% no halo sugere contaminação por água ou degradação avançada'
-  )
-
-  return lines.join('\n')
 }
