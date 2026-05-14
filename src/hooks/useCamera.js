@@ -17,23 +17,27 @@ export function useCamera() {
 
   const startCamera = useCallback(async () => {
     setError(null)
-    try {
-      const constraints = {
-        video: {
-          facingMode,
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
-      }
+    setIsActive(false)
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints)
+    // Stop any existing stream first
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop())
+      streamRef.current = null
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } }
+      })
+
       streamRef.current = stream
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current?.play().catch(() => {})
-        }
+      // videoRef.current is always available because <video> is always in DOM
+      const video = videoRef.current
+      if (video) {
+        video.srcObject = stream
+        // play() returns a promise; catch AbortError on fast unmount
+        video.play().catch(() => {})
       }
 
       setIsActive(true)
@@ -42,6 +46,20 @@ export function useCamera() {
         setError('Permissão de câmera negada. Permita o acesso nas configurações do navegador.')
       } else if (err.name === 'NotFoundError') {
         setError('Nenhuma câmera encontrada neste dispositivo.')
+      } else if (err.name === 'OverconstrainedError') {
+        // Retry without constraints
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+          streamRef.current = stream
+          const video = videoRef.current
+          if (video) {
+            video.srcObject = stream
+            video.play().catch(() => {})
+          }
+          setIsActive(true)
+        } catch (e2) {
+          setError(`Erro ao acessar câmera: ${e2.message}`)
+        }
       } else {
         setError(`Erro ao acessar câmera: ${err.message}`)
       }
@@ -60,26 +78,18 @@ export function useCamera() {
   }, [])
 
   const captureFrame = useCallback(() => {
-    if (!videoRef.current || !isActive) return null
-
     const video = videoRef.current
+    if (!video || !streamRef.current) return null
     const canvas = document.createElement('canvas')
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
+    canvas.width = video.videoWidth || 1280
+    canvas.height = video.videoHeight || 720
     canvas.getContext('2d').drawImage(video, 0, 0)
     return canvas.toDataURL('image/jpeg', 0.92)
-  }, [isActive])
+  }, [])
 
   const flipCamera = useCallback(() => {
-    stopCamera()
     setFacingMode(prev => prev === 'environment' ? 'user' : 'environment')
-  }, [stopCamera])
-
-  useEffect(() => {
-    if (facingMode && isActive) {
-      startCamera()
-    }
-  }, [facingMode]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => () => stopCamera(), [stopCamera])
 
