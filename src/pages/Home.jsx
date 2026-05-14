@@ -72,6 +72,9 @@ export default function Home() {
         <p className="text-xs text-gray-600">
           Análise educativa com <span className="text-oil-gold">GROK Vision</span> (xAI) · Dados armazenados localmente
         </p>
+        <p className="text-xs text-gray-700 mt-1">
+          © 2026 Jossian Costa de Brito · Tuglife Systems · MIT License
+        </p>
       </div>
     </div>
   )
