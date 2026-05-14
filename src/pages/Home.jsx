@@ -23,7 +23,7 @@ export default function Home() {
             Oil Analysis by AI
           </p>
           <p className="text-sm text-gray-300 max-w-xs mx-auto leading-relaxed">
-            Analise a condição do seu óleo lubrificante com câmera e inteligência artificial GROK.
+            Analise a condição do seu óleo lubrificante com câmera e inteligência artificial KRATOS.
             Educativo, rápido e acessível em campo.
           </p>
         </div>
@@ -70,7 +70,7 @@ export default function Home() {
       {/* Footer */}
       <div className="mt-auto px-6 py-4 border-t border-surface-700 text-center">
         <p className="text-xs text-gray-600">
-          Análise educativa com <span className="text-oil-gold">GROK Vision</span> (xAI) · Dados armazenados localmente
+          Análise educativa com <span className="text-oil-gold">KRATOS AI</span> · Dados armazenados localmente
         </p>
         <p className="text-xs text-gray-700 mt-1">
           © 2026 Jossian Costa de Brito · Tuglife Systems · MIT License
@@ -88,8 +88,8 @@ const FEATURES = [
   },
   {
     icon: '🤖',
-    title: 'IA GROK Vision',
-    desc: 'Análise visual por modelo multimodal de última geração da xAI, com explicação educativa detalhada.'
+    title: 'KRATOS AI Vision',
+    desc: 'Análise visual por modelo multimodal de última geração, com explicação educativa detalhada.'
   },
   {
     icon: '📴',

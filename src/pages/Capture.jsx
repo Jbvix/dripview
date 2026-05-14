@@ -61,7 +61,7 @@ export default function Capture() {
           <div className="flex flex-col items-center justify-center h-64">
             <LoadingSpinner label={statusLabel} />
             <p className="text-xs text-gray-500 text-center max-w-xs mt-2">
-              O GROK está lendo os anéis cromatográficos e preparando a análise educativa...
+              O KRATOS está lendo os anéis cromatográficos e preparando a análise educativa...
             </p>
           </div>
         ) : preview ? (
