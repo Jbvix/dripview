@@ -61,7 +61,7 @@ export function useAnalysis() {
   const statusLabel = {
     idle: '',
     'processing:image': 'Processando imagem...',
-    'processing:ai': 'Analisando com GROK IA...',
+    'processing:ai': 'Analisando com KRATOS...',
     success: 'Análise concluída',
     error: 'Erro na análise'
   }[status] || 'Processando...'

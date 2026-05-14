@@ -3,6 +3,10 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "license": "MIT",
+  "author": "Jossian Costa de Brito - Tuglife Systems",
+  "description": "PWA educativo para análise de óleo lubrificante via blotter spot test com IA GROK",
+  "homepage": "https://dripview.netlify.app",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

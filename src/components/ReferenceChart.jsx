@@ -56,7 +56,7 @@ const STEPS = [
   'Coleta uma gota de óleo (aprox. 0,05 mL) com seringa ou conta-gotas e deposite no centro do papel.',
   'Aguarde de 1 a 24 horas em superfície plana, à temperatura ambiente, longe de vibração.',
   'Fotografe a mancha com boa iluminação uniforme, preferencialmente luz difusa natural ou LED branco.',
-  'Use o DripView para capturar e enviar a imagem para análise com IA GROK.',
+  'Use o DripView para capturar e enviar a imagem para análise com KRATOS.',
   'Compare com o resultado anterior do mesmo equipamento para detectar tendências de degradação.'
 ]
 
