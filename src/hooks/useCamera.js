@@ -21,9 +21,8 @@ export function useCamera() {
       const constraints = {
         video: {
           facingMode,
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-          focusMode: 'continuous'
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
         }
       }
 
@@ -32,7 +31,9 @@ export function useCamera() {
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream
-        await videoRef.current.play()
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current?.play().catch(() => {})
+        }
       }
 
       setIsActive(true)
