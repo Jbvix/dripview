@@ -22,19 +22,43 @@ export default function Camera({ onCapture, onFileSelect }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Viewfinder — video always mounted so ref is available on first render */}
       <div className="relative rounded-2xl overflow-hidden bg-surface-800 aspect-square max-w-sm mx-auto w-full">
 
-        {/* Video element always in DOM; hidden until stream is active */}
+        {/*
+          Video is ALWAYS in the DOM and never hidden.
+          play() must be called on a visible element on Android Chrome.
+          Overlay states are absolutely positioned on top of it.
+        */}
         <video
           ref={videoRef}
           autoPlay
           playsInline
           muted
-          className={`w-full h-full object-cover ${isActive ? 'block' : 'hidden'}`}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
         />
 
-        {/* Overlay guide — only when active */}
+        {/* Loading overlay */}
+        {!isActive && !error && (
+          <div className="absolute inset-0 flex items-center justify-center bg-surface-800">
+            <div className="w-8 h-8 border-2 border-t-oil-gold border-surface-600 rounded-full animate-spin" />
+          </div>
+        )}
+
+        {/* Error overlay */}
+        {!isActive && error && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center bg-surface-800">
+            <span className="text-3xl">📷</span>
+            <p className="text-sm text-red-400">{error}</p>
+            <button
+              onClick={startCamera}
+              className="px-4 py-2 bg-oil-gold text-surface-900 rounded-xl text-sm font-bold"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        )}
+
+        {/* Guide overlay — only when video is playing */}
         {isActive && (
           <>
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -47,21 +71,6 @@ export default function Camera({ onCapture, onFileSelect }) {
               </span>
             </div>
           </>
-        )}
-
-        {/* Error state */}
-        {!isActive && error && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
-            <span className="text-3xl">📷</span>
-            <p className="text-sm text-red-400">{error}</p>
-          </div>
-        )}
-
-        {/* Loading state */}
-        {!isActive && !error && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-8 h-8 border-2 border-t-oil-gold border-surface-600 rounded-full animate-spin" />
-          </div>
         )}
       </div>
 

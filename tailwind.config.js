@@ -3,6 +3,9 @@ export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
     extend: {
+      minHeight: {
+        dvh: '100dvh',
+      },
       colors: {
         oil: {
           gold: '#D4A017',

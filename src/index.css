@@ -23,7 +23,7 @@
   }
 
   #root {
-    min-height: 100dvh;
+    min-height: 100dvh; /* dynamic viewport — respects mobile browser chrome */
     display: flex;
     flex-direction: column;
   }

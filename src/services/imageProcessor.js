@@ -32,9 +32,9 @@ async function processCanvas(canvas, originalMimeType) {
 
   const colorData = analyzeImageColors(cropped)
 
-  // Export at 720px for GROK to reduce token usage
-  const exportCanvas = cropToCenter(cropped, 720)
-  const base64 = canvasToBase64(exportCanvas, 0.88)
+  // Export at 512px — enough detail for spot analysis, keeps payload small
+  const exportCanvas = cropToCenter(cropped, 512)
+  const base64 = canvasToBase64(exportCanvas, 0.82)
   const previewDataUrl = exportCanvas.toDataURL('image/jpeg', 0.7)
 
   return {
