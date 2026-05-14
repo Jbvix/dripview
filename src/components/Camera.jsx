@@ -28,6 +28,7 @@ export default function Camera({ onCapture, onFileSelect }) {
           <>
             <video
               ref={videoRef}
+              autoPlay
               playsInline
               muted
               className="w-full h-full object-cover"
