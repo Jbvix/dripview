@@ -67,14 +67,18 @@ export const handler = async (event) => {
     model: MODEL,
     instructions: SYSTEM_PROMPT,
     input: [
-      { type: 'text', text: userText },
       {
-        type: 'image',
-        source: {
-          type: 'base64',
-          media_type: mimeType,
-          data: imageBase64
-        }
+        role: 'user',
+        content: [
+          {
+            type: 'input_image',
+            image_url: `data:${mimeType};base64,${imageBase64}`
+          },
+          {
+            type: 'input_text',
+            text: userText
+          }
+        ]
       }
     ],
     temperature: 0.2,
