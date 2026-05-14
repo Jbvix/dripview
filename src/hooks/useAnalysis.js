@@ -26,7 +26,8 @@ export function useAnalysis() {
       const apiResult = await analyzeOilSpot({
         imageBase64: processed.imageBase64,
         mimeType: processed.mimeType,
-        userNotes
+        userNotes,
+        colorData: processed.colorData
       })
 
       const record = {

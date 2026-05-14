@@ -4,7 +4,7 @@ const ANALYZE_ENDPOINT = '/.netlify/functions/analyze'
 const MAX_RETRIES = 2
 const RETRY_DELAY_MS = 6000
 
-export async function analyzeOilSpot({ imageBase64, mimeType = 'image/jpeg', userNotes = '' }) {
+export async function analyzeOilSpot({ imageBase64, mimeType = 'image/jpeg', userNotes = '', colorData = null }) {
   let lastError
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     if (attempt > 0) await sleep(RETRY_DELAY_MS)
@@ -13,7 +13,7 @@ export async function analyzeOilSpot({ imageBase64, mimeType = 'image/jpeg', use
       const response = await fetch(ANALYZE_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageBase64, mimeType, userNotes })
+        body: JSON.stringify({ imageBase64, mimeType, userNotes, colorData })
       })
 
       const text = await response.text()
